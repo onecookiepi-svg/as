@@ -2,67 +2,35 @@ name: Build macOS
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
 
 jobs:
   build:
-    name: Build float-panel (${{ matrix.arch }})
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - os: macos-13        # Intel (x64)
-            arch: x64
-          - os: macos-14        # Apple Silicon (arm64)
-            arch: arm64
-    runs-on: ${{ matrix.os }}
-
-    env:
-      CSC_IDENTITY_AUTO_DISCOVERY: "false" # 无 Apple 证书，跳过签名（本地需右键打开/去隔离）
-
+    runs-on: macos-latest   # 使用 ARM 机器（不用排队！）
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: npm
+          node-version: 20
 
       - name: Install dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install
 
-      - name: Build backend (Node SEA -> dist/host)
+      # 1. 把 host.js 交叉编译成 Intel (x64) 的可执行文件
+      - name: Compile host.js to Intel Mac binary
         run: |
-          set -e
-          NODE_BIN="$(command -v node)"
-          FUSE="NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2"
           mkdir -p dist
-          printf '{"main":"host.js","output":"dist/host.blob","disableExperimentalSEAWarning":true}\n' > dist/sea-host.json
-          node --experimental-sea-config dist/sea-host.json
-          cp "$NODE_BIN" dist/host
-          npx --no-install postject dist/host NODE_SEA_BLOB dist/host.blob --sentinel-fuse "$FUSE"
+          npx pkg host.js --targets node20-macos-x64 --output dist/host
           chmod +x dist/host
-          rm -f dist/host.blob dist/sea-host.json
-          ls -l dist/host
 
-      - name: Build float-panel (.dmg / .zip)
-        run: |
-          if [ "${{ matrix.arch }}" = "arm64" ]; then
-            ARCH_FLAG="--arm64"
-          else
-            ARCH_FLAG="--x64"
-          fi
-          npx --no-install electron-builder --projectDir float-panel --mac "$ARCH_FLAG" --publish never
+      # 2. 用 electron-builder 打包 Intel (x64) 的 App
+      - name: Build macOS Intel app
+        run: npx electron-builder --mac --x64
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v4
         with:
-          name: float-panel-macos-${{ matrix.arch }}
-          path: |
-            float-panel/release/*.dmg
-            float-panel/release/*.zip
-          if-no-files-found: error
+          name: macos-x64
+          path: release/
