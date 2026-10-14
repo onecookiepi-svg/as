@@ -103,6 +103,7 @@ function initPanel() {
   let knownUsers = [];
   let lastGroupCall = null;
   let lastOnlineUsers = [];
+  let activeTab = 'users';   // 记录当前所在标签，返回时按它恢复视图
 
   /* 呼叫/群发的二次确认态：第一次点击仅"武装"，再点一次才真正发起 */
   const armMap = new Map();
@@ -129,6 +130,7 @@ function initPanel() {
 
   /* ============ 视图切换 ============ */
   function showTab(tab) {
+    activeTab = tab;
     const users = tab === 'users';
     tabUsers.classList.toggle('active', users);
     tabGroups.classList.toggle('active', !users);
@@ -136,12 +138,21 @@ function initPanel() {
     groupView.classList.toggle('hidden', users);
     if (!users) { currentGroup = null; showGroupPane('list'); refreshGroups(); }
   }
+
+  /* 进入设置：隐藏 tabs 和两个列表；返回：按 activeTab 只恢复对应视图 */
   function showSettings(on) {
-    tabsEl.classList.toggle('hidden', on);
-    userView.classList.toggle('hidden', on);
-    groupView.classList.toggle('hidden', on);
-    settingsView.classList.toggle('hidden', !on);
+    if (on) {
+      tabsEl.classList.add('hidden');
+      userView.classList.add('hidden');
+      groupView.classList.add('hidden');
+      settingsView.classList.remove('hidden');
+    } else {
+      settingsView.classList.add('hidden');
+      tabsEl.classList.remove('hidden');
+      showTab(activeTab);   // 关键：只显示当前 tab 对应的视图
+    }
   }
+
   tabUsers.addEventListener('click', () => showTab('users'));
   tabGroups.addEventListener('click', () => showTab('groups'));
   settingsBtn.addEventListener('click', () => showSettings(true));
