@@ -1,0 +1,30 @@
+{
+  "name": "float-panel",
+  "productName": "LanCallHost",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "build:mac": "electron-builder --mac"
+  },
+  "devDependencies": {
+    "electron": "^44.7.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.lancall.host",
+    "electronVersion": "44.7.0",
+    "directories": { "output": "release" },
+    "files": ["main.js", "preload.js", "renderer/**/*", "tray.png"],
+    "extraResources": [
+      { "from": "../dist", "to": "backend", "filter": ["host.exe", "host"] }
+    ],
+    "win": { "target": [{ "target": "dir", "arch": ["x64"] }] },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "zip", "arch": ["x64", "arm64"] }
+      ],
+      "category": "public.app-category.utilities"
+    }
+  }
+}

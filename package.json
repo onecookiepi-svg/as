@@ -1,0 +1,9 @@
+{
+  "dependencies": {
+    "@yao-pkg/pkg": "^6.23.0",
+    "postject": "^1.0.0-alpha.6"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.15.3"
+  }
+}

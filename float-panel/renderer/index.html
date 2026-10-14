@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; connect-src 'self' http:; style-src 'self' 'unsafe-inline'">
+  <title>主机呼叫</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 悬浮球 -->
+  <div id="stage" class="stage">
+    <div id="ball" class="ball" data-hit>
+      <svg viewBox="0 0 24 24" width="26" height="26"
+           fill="none" stroke="currentColor" stroke-width="2"
+           stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.7 21a2 2 0 0 1-3.4 0"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- 面板 -->
+  <div id="panel" class="panel hidden" data-hit>
+    <header class="panel-header" data-hit>
+      <div class="title-wrap">
+        <span class="panel-title" id="hostTitle">加载中…</span>
+      </div>
+      <div class="header-btns">
+        <button id="settingsBtn" class="icon-btn" data-hit aria-label="设置" title="设置">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <button id="close" class="icon-btn" data-hit aria-label="收起" title="收起">
+          <svg viewBox="0 0 24 24" width="15" height="15"
+               fill="none" stroke="currentColor" stroke-width="2.2"
+               stroke-linecap="round">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="tabs" data-hit>
+      <button id="tabUsers" class="tab active" data-hit>用户</button>
+      <button id="tabGroups" class="tab" data-hit>群</button>
+    </div>
+
+    <div class="panel-body">
+      <!-- 设置视图 -->
+      <div id="settingsView" class="settings-view hidden">
+        <div class="settings-section">
+          <div class="settings-title">主机地址</div>
+          <input id="hostAddr" data-hit placeholder="留空自动检测本机 IP" spellcheck="false">
+          <p class="settings-hint">默认自动获取本机 IP，并通过 IP 网段扫描在线设备</p>
+        </div>
+        <button id="backBtn" class="ghost-btn" data-hit>返回</button>
+      </div>
+
+      <!-- 用户视图 -->
+      <div id="userView">
+        <div id="toast" class="toast hidden"></div>
+        <div id="userList"></div>
+        <div id="emptyState" class="empty hidden">
+          <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor"
+               stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <p>暂无在线用户</p>
+          <span>等待用户端上线…</span>
+        </div>
+      </div>
+
+      <!-- 群视图 -->
+      <div id="groupView" class="hidden">
+        <!-- 一级：群列表 -->
+        <div id="groupListPane">
+          <div class="group-topbar">
+            <span class="group-topbar-title">我的群聊</span>
+            <button id="newGroupBtn" class="mini-btn" data-hit>新建群</button>
+          </div>
+          <div id="groupList"></div>
+        </div>
+
+        <!-- 二级：新建群 -->
+        <div id="groupCreatePane" class="hidden">
+          <div class="sub-head">
+            <button id="createBackBtn" class="back-btn" data-hit aria-label="返回">←</button>
+            <span class="sub-title">新建群</span>
+          </div>
+          <div class="sub-body">
+            <input id="newGroupName" data-hit placeholder="输入群名称" spellcheck="false">
+            <button id="createGroupBtn" class="primary-btn" data-hit>创建群</button>
+          </div>
+        </div>
+
+        <!-- 二级：群详情 -->
+        <div id="groupDetailPane" class="hidden">
+          <div class="sub-head">
+            <button id="detailBackBtn" class="back-btn" data-hit aria-label="返回">←</button>
+            <span class="sub-title" id="groupDetailName">群详情</span>
+          </div>
+          <div class="sub-body">
+            <div class="sub-section-title">群成员</div>
+            <div id="groupMemberList"></div>
+            <div class="sub-section-title">添加成员（所有已知用户）</div>
+            <div id="memberAddList"></div>
+            <button id="deleteGroupBtn" class="danger-btn" data-hit>删除群</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="panel-footer" data-hit>
+      <span id="connDot" class="conn-dot"></span>
+      <span id="statusText">连接中…</span>
+    </footer>
+  </div>
+
+  <script src="render.js"></script>
+</body>
+</html>
