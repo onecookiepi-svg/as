@@ -6,6 +6,9 @@ on:
 jobs:
   build:
     runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: float-panel
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,4 +28,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: macos-x64
-          path: release/
+          path: float-panel/release/
