@@ -5,7 +5,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-latest   # 使用 ARM 机器（不用排队！）
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -18,15 +18,7 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      # 1. 把 host.js 交叉编译成 Intel (x64) 的可执行文件
-      - name: Compile host.js to Intel Mac binary
-        run: |
-          mkdir -p dist
-          npx pkg host.js --targets node20-macos-x64 --output dist/host
-          chmod +x dist/host
-
-      # 2. 用 electron-builder 打包 Intel (x64) 的 App
-      - name: Build macOS Intel app
+      - name: Build macOS app
         run: npx electron-builder --mac --x64
 
       - name: Upload artifacts
