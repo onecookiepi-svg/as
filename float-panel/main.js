@@ -23,7 +23,7 @@ const DOCK_TOL     = 60;
 const BACKEND_DIR = app.isPackaged
   ? path.join(process.resourcesPath, 'backend')
   : path.join(__dirname, '..', 'dist');
-const HOST_EXE  = path.join(BACKEND_DIR, process.platform === 'win32' ? 'host.exe' : 'host');
+const HOST_SCRIPT = path.join(BACKEND_DIR, 'host.js');
 const HOST_HTTP = 'http://127.0.0.1:8001';
 
 let ballWin = null;
@@ -48,10 +48,15 @@ if (!gotLock) {
     const req = http.get(HOST_HTTP + '/status', (res) => { res.resume(); });
     req.on('error', () => {
       if (fs.existsSync(HOST_EXE)) {
-        try {
-          const child = spawn(HOST_EXE, [], {
+       try {
+          const child = spawn(process.execPath, [HOST_SCRIPT], {
             detached: true, stdio: 'ignore', windowsHide: true,
-            env: { ...process.env, PARENT_PID: String(process.pid) },
+            env: { 
+              ...process.env, 
+              ELECTRON_RUN_AS_NODE: '1', // 关键：让 Electron 以纯 Node 模式运行
+              PARENT_PID: String(process.pid),
+              USER_DATA_PATH: app.getPath('userData') // 解决 Mac 没权限写文件的问题
+            },
           });
           hostChild = child;
           child.unref();
