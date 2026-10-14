@@ -16,7 +16,7 @@
     "directories": { "output": "release" },
     "files": ["main.js", "preload.js", "renderer/**/*", "tray.png"],
     "extraResources": [
-      { "from": "../dist", "to": "backend", "filter": ["host.exe", "host"] }
+      { "from": "host.js", "to": "backend/host.js" }
     ],
     "win": { "target": [{ "target": "dir", "arch": ["x64"] }] },
     "mac": {
