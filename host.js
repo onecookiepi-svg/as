@@ -550,6 +550,22 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  // 接收用户端"呼叫超时未接"通知：把对应呼叫标记为未接听
+  if (req.method === 'POST' && url.pathname === '/call-missed') {
+    collectBody(req).then((body) => {
+      const c = calls.get(body.callId);
+      if (c && c.status === 'waiting') {
+        c.status = 'missed';
+        c.failReason = '未接听';
+        c.hint = null;
+        if (c.timer) clearTimeout(c.timer);
+        console.log(`[呼叫] × 对 ${c.user} 的呼叫 (${body.callId}) 超时未接听`);
+      }
+      send(200, { ok: true });
+    });
+    return;
+  }
+
   // 用户端下线通知（用户全部登出或进程退出时调用）
   if (req.method === 'POST' && url.pathname === '/bye') {
     collectBody(req).then((body) => {
