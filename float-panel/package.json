@@ -2,6 +2,8 @@
   "name": "float-panel",
   "productName": "LanCallHost",
   "version": "1.0.0",
+  "description": "LanCallHost floating panel",
+  "author": "LanCall",
   "main": "main.js",
   "scripts": {
     "build:mac": "electron-builder --mac"
