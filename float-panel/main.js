@@ -19,11 +19,11 @@ const PANEL_WIN_H  = 480 + PANEL_PAD * 2;
 const EDGE_GAP     = 6;
 const DOCK_TOL     = 60;
 
-/* host 服务可执行文件（打包后位于 resources/backend，开发时位于 ../dist） */
+/* host 服务可执行文件（打包后位于 resources/backend，开发时位于 ../../dist） */
 const BACKEND_DIR = app.isPackaged
   ? path.join(process.resourcesPath, 'backend')
-  : path.join(__dirname, '..', 'dist');
-const HOST_SCRIPT = path.join(BACKEND_DIR, 'host.js');
+  : path.join(__dirname, '..', '..', 'dist');   // src/float-panel -> 项目根/dist
+const HOST_EXE  = path.join(BACKEND_DIR, process.platform === 'win32' ? 'host.exe' : 'host');
 const HOST_HTTP = 'http://127.0.0.1:8001';
 
 let ballWin = null;
@@ -48,15 +48,10 @@ if (!gotLock) {
     const req = http.get(HOST_HTTP + '/status', (res) => { res.resume(); });
     req.on('error', () => {
       if (fs.existsSync(HOST_EXE)) {
-       try {
-          const child = spawn(process.execPath, [HOST_SCRIPT], {
+        try {
+          const child = spawn(HOST_EXE, [], {
             detached: true, stdio: 'ignore', windowsHide: true,
-            env: { 
-              ...process.env, 
-              ELECTRON_RUN_AS_NODE: '1', // 关键：让 Electron 以纯 Node 模式运行
-              PARENT_PID: String(process.pid),
-              USER_DATA_PATH: app.getPath('userData') // 解决 Mac 没权限写文件的问题
-            },
+            env: { ...process.env, PARENT_PID: String(process.pid) },
           });
           hostChild = child;
           child.unref();
@@ -76,6 +71,15 @@ if (!gotLock) {
 
   function workAreaAt(x, y) {
     return screen.getDisplayNearestPoint({ x, y }).workArea;
+  }
+
+  /* 把坐标收敛到光标所在显示器的可用工作区内 */
+  function clampToWorkArea(cursorX, cursorY, x, y, w, h) {
+    const wa = workAreaAt(cursorX, cursorY);
+    return {
+      x: Math.round(Math.max(wa.x, Math.min(x, wa.x + wa.width - w))),
+      y: Math.round(Math.max(wa.y, Math.min(y, wa.y + wa.height - h))),
+    };
   }
 
   /* ============ 球窗口 ============ */
@@ -166,12 +170,17 @@ if (!gotLock) {
   ipcMain.on('float:drag-ball-start', () => {
     if (!ballWin) return;
     dragWin = ballWin;
-    dragState = { offsetX: screen.getCursorScreenPoint().x - ballWin.getBounds().x,
-                  offsetY: screen.getCursorScreenPoint().y - ballWin.getBounds().y };
+    dragState = {
+      offsetX: screen.getCursorScreenPoint().x - ballWin.getBounds().x,
+      offsetY: screen.getCursorScreenPoint().y - ballWin.getBounds().y,
+    };
     dragState.timer = setInterval(() => {
       if (!dragState || !ballWin) return;
       const p = screen.getCursorScreenPoint();
-      ballWin.setPosition(p.x - dragState.offsetX, p.y - dragState.offsetY);
+      const b = ballWin.getBounds();
+      const { x, y } = clampToWorkArea(p.x, p.y,
+        p.x - dragState.offsetX, p.y - dragState.offsetY, b.width, b.height);
+      ballWin.setPosition(x, y);
     }, 16);
   });
   ipcMain.on('float:drag-ball-end', dockBall);
@@ -190,13 +199,17 @@ if (!gotLock) {
     };
     let best = null, min = Infinity;
     for (const k of ['left', 'right', 'top', 'bottom']) if (d[k] < min) { min = d[k]; best = k; }
-    if (min > DOCK_TOL) return;
-    const pos = {};
-    if (best === 'right')  pos.x = wa.x + wa.width - BALL_WIN - EDGE_GAP;
-    if (best === 'left')   pos.x = wa.x + EDGE_GAP;
-    if (best === 'bottom') pos.y = wa.y + wa.height - BALL_WIN - EDGE_GAP;
-    if (best === 'top')    pos.y = wa.y + EDGE_GAP;
-    ballWin.setPosition(pos.x !== undefined ? pos.x : b.x, pos.y !== undefined ? pos.y : b.y);
+
+    let nx = b.x, ny = b.y;
+    if (min <= DOCK_TOL) {
+      if (best === 'right')  nx = wa.x + wa.width - BALL_WIN - EDGE_GAP;
+      if (best === 'left')   nx = wa.x + EDGE_GAP;
+      if (best === 'bottom') ny = wa.y + wa.height - BALL_WIN - EDGE_GAP;
+      if (best === 'top')    ny = wa.y + EDGE_GAP;
+    }
+    const c = clampToWorkArea(b.x + b.width / 2, b.y + b.height / 2,
+                              nx, ny, BALL_WIN, BALL_WIN);
+    ballWin.setPosition(c.x, c.y);
   }
 
   // 面板窗口
@@ -217,7 +230,10 @@ if (!gotLock) {
     dragState.timer = setInterval(() => {
       if (!dragState || !panelWin) return;
       const c = screen.getCursorScreenPoint();
-      panelWin.setPosition(c.x - dragState.offsetX, c.y - dragState.offsetY);
+      const pb = panelWin.getBounds();
+      const { x, y } = clampToWorkArea(c.x, c.y,
+        c.x - dragState.offsetX, c.y - dragState.offsetY, pb.width, pb.height);
+      panelWin.setPosition(x, y);
     }, 16);
   });
   ipcMain.on('float:drag-panel-end', () => {
