@@ -92,20 +92,23 @@ function initPanel() {
   const newGroupName    = document.getElementById('newGroupName');
   const connDot      = document.getElementById('connDot');
   const statusText   = document.getElementById('statusText');
+  const userSearch      = document.getElementById('userSearch');
+  const userSearchClear = document.getElementById('userSearchClear');
 
   let hostAddr = localStorage.getItem('floatHost') || '';
   hostAddrEl.value = hostAddr;
   const apiBase = () => 'http://' + (hostAddr || '127.0.0.1:8001');
 
   const callState = new Map();
-  const TERMINAL_KEEP_MS = 8000;
+  const TERMINAL_KEEP_MS = 8000;   // 终态（已完成 / 呼叫失败）保留时长，过期后按钮恢复可点
   let groupData = [];
   let knownUsers = [];
   let lastGroupCall = null;
   let lastOnlineUsers = [];
-  let activeTab = 'users';   // 记录当前所在标签，返回时按它恢复视图
+  let activeTab = 'users';
+  let userQuery = '';
 
-  /* 呼叫/群发的二次确认态：第一次点击仅"武装"，再点一次才真正发起 */
+  /* 呼叫/群发的二次确认态 */
   const armMap = new Map();
   function isArmed(key) { return armMap.has(key); }
   function armKey(key, ttl) { clearTimeout(armMap.get(key)); const t = setTimeout(() => armMap.delete(key), ttl); armMap.set(key, t); }
@@ -139,7 +142,6 @@ function initPanel() {
     if (!users) { currentGroup = null; showGroupPane('list'); refreshGroups(); }
   }
 
-  /* 进入设置：隐藏 tabs 和两个列表；返回：按 activeTab 只恢复对应视图 */
   function showSettings(on) {
     if (on) {
       tabsEl.classList.add('hidden');
@@ -149,7 +151,7 @@ function initPanel() {
     } else {
       settingsView.classList.add('hidden');
       tabsEl.classList.remove('hidden');
-      showTab(activeTab);   // 关键：只显示当前 tab 对应的视图
+      showTab(activeTab);
     }
   }
 
@@ -195,15 +197,57 @@ function initPanel() {
     for (const c of calls) {
       const prev = callState.get(c.user);
       if (!prev || prev.callId === c.callId) {
-        const changed = !prev || prev.status !== c.status;
-        callState.set(c.user, { callId: c.callId, status: c.status, reply: c.reply, failReason: c.failReason, at: changed ? Date.now() : prev.at });
+        const changed = !prev || prev.status !== c.status || prev.reply !== c.reply;
+        callState.set(c.user, {
+          callId: c.callId, status: c.status, reply: c.reply, failReason: c.failReason,
+          at: changed ? Date.now() : (prev ? prev.at : Date.now()),
+        });
       } else if (!prev.callId || c.callId > prev.callId) {
         callState.set(c.user, { callId: c.callId, status: c.status, reply: c.reply, failReason: c.failReason, at: Date.now() });
       }
     }
   }
 
-  /* ============ 渲染用户（独立列表，不分组） ============ */
+  /* ============ 用户名模糊搜索 ============ */
+  function fuzzyMatch(name, query) {
+    const t = String(name).toLowerCase();
+    const q = query.toLowerCase().trim();
+    if (!q) return true;
+    if (t.includes(q)) return true;
+    let ti = 0;
+    for (let qi = 0; qi < q.length; qi++) {
+      const idx = t.indexOf(q[qi], ti);
+      if (idx === -1) return false;
+      ti = idx + 1;
+    }
+    return true;
+  }
+
+  userSearch.addEventListener('input', () => {
+    userQuery = userSearch.value;
+    userSearchClear.classList.toggle('hidden', !userQuery);
+    renderUsers(lastOnlineUsers);
+  });
+
+  userSearchClear.addEventListener('click', () => {
+    userSearch.value = '';
+    userQuery = '';
+    userSearchClear.classList.add('hidden');
+    renderUsers(lastOnlineUsers);
+    userSearch.focus();
+  });
+
+  userSearch.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      userSearch.value = '';
+      userQuery = '';
+      userSearchClear.classList.add('hidden');
+      renderUsers(lastOnlineUsers);
+      e.stopPropagation();
+    }
+  });
+
+  /* ============ 渲染用户 ============ */
   const AVATAR_COLORS = 6;
   function avatarClass(name) {
     let h = 0;
@@ -213,6 +257,18 @@ function initPanel() {
   function esc(s) {
     return String(s).replace(/[&<>"']/g, (c) =>
       ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  /* 判断回复内容：稍后 / 收到 */
+  function isLaterReply(reply) {
+    return typeof reply === 'string' && reply.indexOf('稍后') >= 0;
+  }
+
+  /* 判断某用户是否处于“稍后”状态 */
+  function isLaterUser(name) {
+    const st = callState.get(name);
+    if (!st || st.status !== 'acked') return false;
+    return isLaterReply(String(st.reply || ''));
   }
 
   function renderUsers(users) {
@@ -231,19 +287,47 @@ function initPanel() {
       emptyState.querySelector('span').textContent = '等待用户端上线…';
       return;
     }
+
+    let filtered = userQuery
+      ? users.filter((u) => fuzzyMatch(u.name, userQuery))
+      : users.slice();
+
+    if (!filtered.length) {
+      userList.innerHTML = '';
+      emptyState.classList.remove('hidden');
+      emptyState.querySelector('p').textContent = '没有匹配的用户';
+      emptyState.querySelector('span').textContent = '试试其他关键字';
+      return;
+    }
+
+    // 排序：稍后状态的用户置顶，其余保持原顺序
+    filtered.sort((a, b) => {
+      const la = isLaterUser(a.name) ? 0 : 1;
+      const lb = isLaterUser(b.name) ? 0 : 1;
+      return la - lb;
+    });
+
     emptyState.classList.add('hidden');
 
     const now = Date.now();
-    userList.innerHTML = users.map((u) => {
+    userList.innerHTML = filtered.map((u) => {
       const st = callState.get(u.name);
       const gtags = (u.groups || []).map((g) => `<span class="gtag">${esc(g)}</span>`).join('');
       let btn, sub;
+
+      const reply = st && st.status === 'acked' ? String(st.reply || '收到') : '';
+      const later = st && st.status === 'acked' && isLaterReply(reply);
+      const doneFresh = st && st.status === 'acked' && !later && (now - st.at < TERMINAL_KEEP_MS);
+
       if (st && st.status === 'waiting') {
         btn = `<button class="call-btn waiting" disabled>呼叫中…</button>`;
         sub = '';
-      } else if (st && st.status === 'acked' && now - st.at < TERMINAL_KEEP_MS) {
-        btn = `<button class="call-btn acked" disabled>✓ 已回复</button>`;
-        sub = '回复：' + esc(st.reply || '收到');
+      } else if (later) {
+        btn = `<button class="call-btn resend" data-resend="${esc(u.name)}">重发</button>`;
+        sub = '对方请求稍后处理';
+      } else if (doneFresh) {
+        btn = `<button class="call-btn acked" disabled>✓ 已完成</button>`;
+        sub = '回复：' + esc(reply);
       } else if (st && st.status === 'failed' && now - st.at < TERMINAL_KEEP_MS) {
         btn = `<button class="call-btn failed" data-call="${esc(u.name)}">重新呼叫</button>`;
         sub = esc(st.failReason || '呼叫失败');
@@ -254,10 +338,14 @@ function initPanel() {
         btn = `<button class="call-btn" data-call="${esc(u.name)}">呼叫</button>`;
         sub = esc((u.since || '').split(' ').pop());
       }
-      return `<div class="user-row">
+
+      // 稍后标签：和名字同一行，紧跟名字后面
+      const laterTag = later ? '<span class="later-tag">稍后</span>' : '';
+
+      return `<div class="user-row${later ? ' is-later' : ''}">
         <div class="avatar ${avatarClass(u.name)}">${esc((u.name[0] || '?').toUpperCase())}</div>
         <div class="user-info">
-          <div class="user-name-wrap">${esc(u.name)} ${gtags}</div>
+          <div class="user-name-wrap">${esc(u.name)} ${laterTag} ${gtags}</div>
           <div class="user-sub">${sub}</div>
         </div>
         ${btn}
@@ -265,8 +353,32 @@ function initPanel() {
     }).join('');
   }
 
-  /* ============ 单个呼叫 ============ */
+  /* ============ 呼叫 ============ */
+  async function doCall(user) {
+    callState.set(user, { callId: null, status: 'waiting', at: Date.now() });
+    try {
+      const r = await json('/call', { method: 'POST', body: JSON.stringify({ user }) });
+      if (r.ok) {
+        callState.set(user, { callId: r.callId, status: 'waiting', at: Date.now() });
+        showToast('已呼叫 ' + user + '，等待接收…', 'waiting');
+      } else {
+        callState.set(user, { callId: null, status: 'failed', failReason: r.error, at: Date.now() });
+        showToast('呼叫 ' + user + ' 失败：' + r.error, 'failed');
+      }
+    } catch (err) {
+      callState.set(user, { callId: null, status: 'failed', failReason: '请求失败', at: Date.now() });
+      showToast('呼叫 ' + user + ' 失败', 'failed');
+    }
+    setTimeout(pollStatus, 1200);
+  }
+
   userList.addEventListener('click', async (e) => {
+    const rb = e.target.closest('[data-resend]');
+    if (rb) {
+      await doCall(rb.getAttribute('data-resend'));
+      return;
+    }
+
     const b = e.target.closest('[data-call]');
     if (!b) return;
     const user = b.getAttribute('data-call');
@@ -277,19 +389,10 @@ function initPanel() {
       return;
     }
     disarmKey('user:' + user);
-    callState.set(user, { callId: null, status: 'waiting', at: Date.now() });
-    try {
-      const r = await json('/call', { method: 'POST', body: JSON.stringify({ user }) });
-      if (r.ok) { callState.set(user, { callId: r.callId, status: 'waiting', at: Date.now() }); showToast('已呼叫 ' + user + '，等待接收…', 'waiting'); }
-      else { callState.set(user, { callId: null, status: 'failed', failReason: r.error, at: Date.now() }); showToast('呼叫 ' + user + ' 失败：' + r.error, 'failed'); }
-    } catch (err) {
-      callState.set(user, { callId: null, status: 'failed', failReason: '请求失败', at: Date.now() });
-      showToast('呼叫 ' + user + ' 失败', 'failed');
-    }
-    setTimeout(pollStatus, 1200);
+    await doCall(user);
   });
 
-  /* ============ 群视图（二级界面：列表 → 新建群 / 群详情） ============ */
+  /* ============ 群视图 ============ */
   let currentGroup = null;
 
   function showGroupPane(pane) {
@@ -361,12 +464,10 @@ function initPanel() {
     showGroupPane('detail');
   }
 
-  /* 一级：群列表点击（打开详情 / 群发） */
   groupList.addEventListener('click', async (e) => {
     const gc = e.target.closest('[data-groupcall]');
     if (gc) {
       const grp = gc.getAttribute('data-groupcall');
-      // 二次确认防误触
       if (gc.dataset.armed !== '1') {
         gc.dataset.armed = '1';
         gc.classList.add('armed');
@@ -395,7 +496,6 @@ function initPanel() {
     if (row) openGroup(row.getAttribute('data-open'));
   });
 
-  /* 二级：新建群 */
   newGroupBtn.addEventListener('click', () => {
     newGroupName.value = '';
     showGroupPane('create');
@@ -412,7 +512,6 @@ function initPanel() {
     } catch (e) { showToast('新建群失败：' + e.message, 'failed'); }
   });
 
-  /* 二级：群详情（移除 / 添加 / 删除群，删除与移除均二次确认） */
   detailBackBtn.addEventListener('click', () => { currentGroup = null; showGroupPane('list'); });
 
   async function doRemoveMember(mac) {
