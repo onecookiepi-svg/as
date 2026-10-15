@@ -23,7 +23,6 @@ html, body {
   justify-content: center;
   transition: transform .3s ease;
 }
-/* 贴边：球贴到屏幕边缘，始终露出清晰的半圆作为提示 */
 .stage[data-side="right"]  { transform: translateX(28px); }
 .stage[data-side="left"]   { transform: translateX(-28px); }
 .stage[data-side="bottom"] { transform: translateY(28px); }
@@ -46,7 +45,6 @@ html, body {
       rgba(255,255,255,0) 55%),
     linear-gradient(140deg, #8f7bff 0%, #6366f1 48%, #4f46e5 100%);
 
-  /* box-shadow 跟随圆形，不会画出矩形 */
   box-shadow:
     0 6px 16px rgba(79,70,229,.42),
     0 2px 4px rgba(0,0,0,.16),
@@ -63,12 +61,10 @@ html, body {
 .ball.dragging { transform: translateZ(0) scale(1.06); cursor: grabbing; }
 .ball svg { pointer-events: none; }
 
-/* 贴边且鼠标离开：缩小成小半圆（清晰可见的贴边提示） */
 .ball.edge-hidden {
   transform: translateZ(0) scale(.55);
   transition: transform .3s ease;
 }
-/* 鼠标靠近时放大，提示可交互 */
 .ball.edge-hidden:hover {
   transform: translateZ(0) scale(.8);
 }
@@ -123,6 +119,54 @@ html, body {
 .icon-btn:hover  { background: rgba(255,255,255,.18); color: #fff; }
 .icon-btn:active { background: rgba(255,255,255,.28); }
 .icon-btn.spinning svg { transform: rotate(360deg); transition: transform .5s ease; }
+
+/* ================= 用户搜索框 ================= */
+.user-search-wrap {
+  position: relative;
+  margin-bottom: 10px;
+  padding: 0 2px;
+}
+
+#userSearch {
+  width: 100%;
+  padding: 8px 30px 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #1f2937;
+  background: #fff;
+  transition: border-color .15s, box-shadow .15s;
+}
+#userSearch::placeholder { color: #c3cbd8; }
+#userSearch:focus {
+  outline: none;
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99,102,241,.12);
+}
+
+.search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 50%;
+  background: rgba(15,23,42,.1);
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  transition: background .14s, color .14s;
+}
+.search-clear:hover  { background: rgba(15,23,42,.2); color: #1f2937; }
+.search-clear:active { transform: translateY(-50%) scale(.9); }
 
 /* ================= 用户列表 ================= */
 .panel-body {
@@ -179,7 +223,6 @@ html, body {
   font-size: 14px;
   font-weight: 600;
 }
-/* 按名字 hash 分配的渐变色 */
 .avatar.c0 { background: linear-gradient(135deg, #8f7bff, #6366f1); }
 .avatar.c1 { background: linear-gradient(135deg, #34d399, #059669); }
 .avatar.c2 { background: linear-gradient(135deg, #fbbf24, #d97706); }
@@ -227,6 +270,27 @@ html, body {
 .call-btn.waiting { background: linear-gradient(135deg, #fbbf24, #f59e0b); box-shadow: 0 2px 6px rgba(245,158,11,.3); }
 .call-btn.acked   { background: linear-gradient(135deg, #34d399, #10b981); box-shadow: 0 2px 6px rgba(16,185,129,.3); }
 .call-btn.failed  { background: linear-gradient(135deg, #f87171, #ef4444); box-shadow: 0 2px 6px rgba(239,68,68,.3); }
+
+/* 重发按钮：琥珀色 */
+.call-btn.resend {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  box-shadow: 0 2px 6px rgba(245,158,11,.35);
+}
+.call-btn.resend:hover:not(:disabled) { box-shadow: 0 4px 10px rgba(245,158,11,.45); }
+
+/* ===== 稍后标签：放在名字“头顶”独立一行 ===== */
+.later-tag {
+  display: inline-block;
+  margin-bottom: 3px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
 
 /* 空态 */
 .empty {
@@ -444,7 +508,6 @@ html, body {
   color: #4f46e5;
 }
 
-/* 群成员名 */
 .member-name { font-size: 12px; color: #374151; flex: 1; }
 
 /* ================= 群二级界面 ================= */
@@ -548,7 +611,7 @@ html, body {
 .add-user-line { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
 .joined { font-size: 11px; color: #9aa4b2; flex: 0 0 auto; }
 
-/* 二次确认武装态（群发/移除/删除） */
+/* 二次确认武装态 */
 .armed {
   background: #ef4444 !important;
   color: #fff !important;
@@ -556,3 +619,27 @@ html, body {
   border-color: #ef4444 !important;
 }
 .call-btn.armed { background: linear-gradient(135deg, #f87171, #ef4444); box-shadow: 0 2px 6px rgba(239,68,68,.4); }
+.user-row.is-later {
+  background: rgba(251,191,36,.1);
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+.user-row.is-later {
+  background: rgba(251,191,36,.1);
+  box-shadow: inset 3px 0 0 #f59e0b;
+}
+.user-row.is-later:hover {
+  background: rgba(251,191,36,.16);
+}
+.later-tag {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.4;
+  vertical-align: middle;
+  background: #fef3c7;
+  color: #b45309;
+  border: 1px solid #fcd34d;
+}
