@@ -63,6 +63,10 @@
 
       <!-- 用户视图 -->
       <div id="userView">
+        <div class="user-search-wrap" data-hit>
+          <input id="userSearch" data-hit placeholder="搜索用户名…" spellcheck="false" autocomplete="off">
+          <button id="userSearchClear" class="search-clear hidden" data-hit aria-label="清除">×</button>
+        </div>
         <div id="toast" class="toast hidden"></div>
         <div id="userList"></div>
         <div id="emptyState" class="empty hidden">
